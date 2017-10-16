@@ -94,7 +94,7 @@ int main(){
 	int number_training		= 60000;
 	int number_test			= 10000;
 
-	int number_gaussian_components = 64;
+	int number_gaussian_components = 32;
 
 	double minimum_variance		 = 0.05; // prevents overfitting in the case of diagonal covariance
 	double probability_influence = 0.01; // how much does the rand() affect the initialization of the parameters
@@ -182,7 +182,7 @@ int main(){
 				delete[] optimal_label_sequence;
 				delete[] optimal_state_sequence;
 			}
-			printf("score: %d / %d, %d / %d  §¤: %lf  step %d  %.2lf sec\n", number_correct[0], number_training, number_correct[1], number_test, log_likelihood, h + 1, (double)(clock() - time) / CLOCKS_PER_SEC);
+			printf("score: %d / %d, %d / %d  â„“: %lf  step %d  %.2lf sec\n", number_correct[0], number_training, number_correct[1], number_test, log_likelihood, h + 1, (double)(clock() - time) / CLOCKS_PER_SEC);
 		}
 	
 		for(int i = 0;i < number_training;i++){
