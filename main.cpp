@@ -94,7 +94,7 @@ int main(){
 	int number_training		= 60000;
 	int number_test			= 10000;
 
-	int number_gaussian_components = 32;
+	int number_gaussian_components = 1;
 
 	double minimum_variance		 = 0.05; // prevents overfitting in the case of diagonal covariance
 	double probability_influence = 0.01; // how much does the rand() affect the initialization of the parameters
