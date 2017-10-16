@@ -1,5 +1,5 @@
 # CHMM
-C++ implementation of Continuous Hidden Markov Model with Gaussian Mixture </br>
+C++ implementation of Continuous Hidden Markov Model with Gaussian Mixture </br></br>
 main.cpp classify MNIST handwritten digits (14 sequences of 2*28 vectors) using CHMM.
 
 ## MNIST classification results
