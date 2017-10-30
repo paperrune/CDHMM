@@ -30,7 +30,7 @@ public:
 	Continuous_Hidden_Markov_Model(bool **state_connection, char type_covariance[], char type_model[], char **state_label, int dimension_event, int number_gaussian_components, int number_states);
 	~Continuous_Hidden_Markov_Model();
 
-	void Initialize(int number_events, int length_event[], double ***_event, int seed, double probability_influence);
+	void Initialize(int number_events, int length_event[], double ***_event, int seed);
 	void Load_Parameter(char path[]);
 	void Save_Parameter(char path[]);
 
