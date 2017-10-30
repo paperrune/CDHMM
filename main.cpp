@@ -96,8 +96,7 @@ int main(){
 
 	int number_gaussian_components = 1;
 
-	double minimum_variance		 = 0.05; // prevents overfitting in the case of diagonal covariance
-	double probability_influence = 0.01; // how much does the rand() affect the initialization of the parameters
+	double minimum_variance = 0.05; // prevents overfitting in the case of diagonal covariance
 
 	int *label			= new int[number_training + number_test];
 	int *length_event	= new int[number_training + number_test];
@@ -151,7 +150,7 @@ int main(){
 				state[i][j] = ((j / 3 == 0 || j / 3 == 2) ? (30):(3 * label[i])) + (j % 3);
 			}
 		}
-		CHMM->Initialize(number_training, length_event, _event, 0, probability_influence);
+		CHMM->Initialize(number_training, length_event, _event, 0);
 
 		for(int h = 0, time = clock();h < number_iterations;h++){
 			int number_correct[2] = {0, };
