@@ -150,7 +150,7 @@ Continuous_Hidden_Markov_Model::~Continuous_Hidden_Markov_Model(){
 	delete GMM;
 }
 
-void Continuous_Hidden_Markov_Model::Initialize(int number_events, int length_event[], double ***_event, int seed, double probability_influence){
+void Continuous_Hidden_Markov_Model::Initialize(int number_events, int length_event[], double ***_event, int seed){
 	int number_data = 0;
 
 	double sum = 0;
@@ -162,7 +162,7 @@ void Continuous_Hidden_Markov_Model::Initialize(int number_events, int length_ev
 	srand(seed);
 
 	for(int i = 0;i < number_states;i++){
-		sum += (initial_probability[i] = (1 - probability_influence) + probability_influence * (double)rand() / RAND_MAX);
+		sum += (initial_probability[i] = (rand() + 1.0) / RAND_MAX);
 	}
 	for(int i = 0;i < this->number_states;i++){
 		initial_probability[i] /= sum;
@@ -172,7 +172,7 @@ void Continuous_Hidden_Markov_Model::Initialize(int number_events, int length_ev
 		double sum = 0;
 
 		for(int j = 0;j < this->number_states;j++){
-			sum += (transition_probability[i][j] = (1 - probability_influence) + probability_influence * (double)rand() / RAND_MAX);
+			sum += (transition_probability[i][j] = (rand() + 1.0) / RAND_MAX);
 		}
 		for(int j = 0;j < this->number_states;j++){
 			transition_probability[i][j] /= sum;
