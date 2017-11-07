@@ -170,10 +170,7 @@ int main(){
 				}
 				printf("\n");*/
 
-				/*for(int t = 0;t < length_event[i];t++){
-					printf("%s ", optimal_label_sequence[t]);
-				}
-				printf("\n");*/
+				// printf("%s\n", optimal_label_sequence);
 
 				#pragma omp atomic
 				number_correct[(i < number_training) ? (0):(1)] += (atoi(&optimal_label_sequence[2]) == label[i]);
