@@ -404,7 +404,6 @@ double Continuous_Hidden_Markov_Model::Baum_Welch_Algorithm(int number_events, i
 			}
 		}
 
-		// #pragma omp parallel for
 		for(int t = 0;t < length_event[h];t++){
 			for(int i = 0;i < number_states[h];i++){
 				int k = state[h][i];
