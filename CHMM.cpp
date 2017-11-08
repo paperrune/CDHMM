@@ -304,8 +304,8 @@ double Continuous_Hidden_Markov_Model::Baum_Welch_Algorithm(int number_events, i
 
 	double ***new_weight				= new double**[number_gaussian_components];
 	double ****new_mean					= new double***[number_gaussian_components];
-	double ****new_diagonal_covariance;
-	double *****new_covariance;
+	double ****new_diagonal_covariance = 0;
+	double *****new_covariance = 0;
 
 	for(int i = 0;i < this->number_states;i++){
 		new_transition_probability[i] = new double*[this->number_states];
