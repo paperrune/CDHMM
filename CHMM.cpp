@@ -162,7 +162,7 @@ void Continuous_Hidden_Markov_Model::Initialize(int number_events, int length_ev
 	srand(seed);
 
 	for (int i = 0; i < number_states; i++){
-		sum += (initial_probability[i] = 1.0 / number_states + 0.02 * rand() / RAND_MAX - 0.01);
+		sum += (initial_probability[i] = 1.0 / number_states + 0.01 * rand() / RAND_MAX);
 	}
 	for (int i = 0; i < number_states; i++){
 		initial_probability[i] /= sum;
@@ -172,7 +172,7 @@ void Continuous_Hidden_Markov_Model::Initialize(int number_events, int length_ev
 		double sum = 0;
 
 		for (int j = 0; j < number_states; j++){
-			sum += (transition_probability[i][j] = 1.0 / number_states + 0.02 * rand() / RAND_MAX - 0.01);
+			sum += (transition_probability[i][j] = 1.0 / number_states + 0.01 * rand() / RAND_MAX);
 		}
 		for (int j = 0; j < number_states; j++){
 			transition_probability[i][j] /= sum;
