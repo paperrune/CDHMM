@@ -118,7 +118,7 @@ Continuous_Hidden_Markov_Model::Continuous_Hidden_Markov_Model(bool **state_conn
 		}
 	}
 	for (int i = 0; i < number_states; i++){
-		int length_label = strlen(state_label[i]) + 1;
+		int length_label = (int)strlen(state_label[i]) + 1;
 
 		if (maximum_length_label < length_label){
 			maximum_length_label = length_label;
@@ -386,21 +386,18 @@ double Continuous_Hidden_Markov_Model::Baum_Welch_Algorithm(int number_events, i
 		double **gamma = new double*[length_event[h]];
 		double **likelihood = new double*[length_event[h]];
 
-		double ***delta = new double**[length_event[h]];
 		double ***gaussian_distribution = new double**[length_event[h]];
 		double ***theta = new double**[length_event[h]];
 
 		for (int t = 0; t < length_event[h]; t++){
 			alpha[t] = new double[number_states[h]];
 			beta[t] = new double[number_states[h]];
-			delta[t] = new double*[number_states[h]];
 			gamma[t] = new double[number_states[h]];
 			gaussian_distribution[t] = new double*[number_states[h]];
 			likelihood[t] = new double[number_states[h]];
 			theta[t] = new double*[number_states[h]];
 
 			for (int i = 0; i < number_states[h]; i++){
-				delta[t][i] = new double[number_states[h]];
 				gaussian_distribution[t][i] = new double[number_gaussian_components];
 				theta[t][i] = new double[number_gaussian_components];
 			}
@@ -435,19 +432,45 @@ double Continuous_Hidden_Markov_Model::Baum_Welch_Algorithm(int number_events, i
 			if (t < length_event[h] - 1){
 				double sum = 0;
 
+				double **delta = new double*[number_states[h]];
+
+				for (int i = 0; i < number_states[h]; i++){
+					delta[i] = new double[number_states[h]];
+				}
+
 				for (int i = 0; i < number_states[h]; i++){
 					for (int j = 0; j < number_states[h]; j++){
 						int k = state[h][i];
 						int l = state[h][j];
 
-						sum += (delta[t][i][j] = (state_connection[k][l] && Access_State(i, j)) * alpha[t][i] * transition_probability[k][l] * likelihood[t + 1][j] * beta[t + 1][j]);
+						sum += (delta[i][j] = (state_connection[k][l] && Access_State(i, j)) * alpha[t][i] * transition_probability[k][l] * likelihood[t + 1][j] * beta[t + 1][j]);
 					}
 				}
 				for (int i = 0; i < number_states[h]; i++){
 					for (int j = 0; j < number_states[h]; j++){
-						delta[t][i][j] /= sum;
+						delta[i][j] /= sum;
 					}
 				}
+
+				for (int i = 0; i < this->number_states; i++){
+					for (int j = 0; j < this->number_states; j++){
+						for (int l = 0; l < number_states[h]; l++){
+							if (i == state[h][l]){
+								for (int m = 0; m < number_states[h]; m++){
+									if (j == state[h][m]){
+										#pragma omp atomic
+										new_transition_probability[i][j][0] += delta[l][m];
+									}
+								}
+							}
+						}
+					}
+				}
+
+				for (int i = 0; i < number_states[h]; i++){
+					delete[] delta[i];
+				}
+				delete[] delta;
 			}
 
 			for (int i = 0; i < number_states[h]; i++){
@@ -497,17 +520,10 @@ double Continuous_Hidden_Markov_Model::Baum_Welch_Algorithm(int number_events, i
 				for (int t = 0; t < length_event[h] - 1; t++){
 					for (int l = 0; l < number_states[h]; l++){
 						if (i == state[h][l]){
-							for (int m = 0; m < number_states[h]; m++){
-								if (j == state[h][m]){
-									sum[0] += delta[t][l][m];
-								}
-							}
 							sum[1] += gamma[t][l];
 						}
 					}
 				}
-				#pragma omp atomic
-				new_transition_probability[i][j][0] += sum[0];
 				#pragma omp atomic
 				new_transition_probability[i][j][1] += sum[1];
 			}
@@ -590,13 +606,11 @@ double Continuous_Hidden_Markov_Model::Baum_Welch_Algorithm(int number_events, i
 
 		for (int t = 0; t < length_event[h]; t++){
 			for (int i = 0; i < number_states[h]; i++){
-				delete[] delta[t][i];
 				delete[] gaussian_distribution[t][i];
 				delete[] theta[t][i];
 			}
 			delete[] alpha[t];
 			delete[] beta[t];
-			delete[] delta[t];
 			delete[] gamma[t];
 			delete[] gaussian_distribution[t];
 			delete[] likelihood[t];
@@ -604,7 +618,6 @@ double Continuous_Hidden_Markov_Model::Baum_Welch_Algorithm(int number_events, i
 		}
 		delete[] alpha;
 		delete[] beta;
-		delete[] delta;
 		delete[] gamma;
 		delete[] gaussian_distribution;
 		delete[] likelihood;
