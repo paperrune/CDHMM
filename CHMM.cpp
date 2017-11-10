@@ -452,18 +452,10 @@ double Continuous_Hidden_Markov_Model::Baum_Welch_Algorithm(int number_events, i
 					}
 				}
 
-				for (int i = 0; i < this->number_states; i++){
-					for (int j = 0; j < this->number_states; j++){
-						for (int l = 0; l < number_states[h]; l++){
-							if (i == state[h][l]){
-								for (int m = 0; m < number_states[h]; m++){
-									if (j == state[h][m]){
-										#pragma omp atomic
-										new_transition_probability[i][j][0] += delta[l][m];
-									}
-								}
-							}
-						}
+				for (int i = 0; i < number_states[h]; i++){
+					for (int j = 0; j < number_states[h]; j++){
+						#pragma omp atomic
+						new_transition_probability[state[h][i]][state[h][j]][0] += delta[i][j];
 					}
 				}
 
@@ -513,91 +505,81 @@ double Continuous_Hidden_Markov_Model::Baum_Welch_Algorithm(int number_events, i
 			}
 			#pragma omp atomic
 			new_initial_probability[i] += sum;
+		}
 
-			for (int j = 0; j < this->number_states; j++){
-				double sum[2] = { 0, };
+		for (int l = 0; l < number_states[h]; l++){
+			double sum = 0;
 
-				for (int t = 0; t < length_event[h] - 1; t++){
-					for (int l = 0; l < number_states[h]; l++){
-						if (i == state[h][l]){
-							sum[1] += gamma[t][l];
-						}
-					}
-				}
-				#pragma omp atomic
-				new_transition_probability[i][j][1] += sum[1];
+			for (int t = 0; t < length_event[h] - 1; t++){
+				sum += gamma[t][l];
 			}
+			for (int j = 0; j < this->number_states; j++){
+				#pragma omp atomic
+				new_transition_probability[state[h][l]][j][1] += sum;
+			}
+		}
 
-			for (int j = 0; j < number_gaussian_components; j++){
+		for (int j = 0; j < number_gaussian_components; j++){
+			for (int l = 0; l < number_states[h]; l++){
 				double sum[2] = { 0, };
 
 				for (int t = 0; t < length_event[h]; t++){
-					for (int l = 0; l < number_states[h]; l++){
-						if (i == state[h][l]){
-							sum[0] += theta[t][l][j];
-							sum[1] += gamma[t][l];
-						}
-					}
+					sum[0] += theta[t][l][j];
+					sum[1] += gamma[t][l];
 				}
 				#pragma omp atomic
-				new_weight[j][i][0] += sum[0];
+				new_weight[j][state[h][l]][0] += sum[0];
 				#pragma omp atomic
-				new_weight[j][i][1] += sum[1];
+				new_weight[j][state[h][l]][1] += sum[1];
 			}
+		}
 
-			for (int j = 0; j < number_gaussian_components; j++){
-				for (int k = 0; k < dimension_event; k++){
+		for (int j = 0; j < number_gaussian_components; j++){
+			for (int k = 0; k < dimension_event; k++){
+				for (int m = 0; m < number_states[h]; m++){
 					double sum[2] = { 0, };
 
 					for (int t = 0; t < length_event[h]; t++){
-						for (int m = 0; m < number_states[h]; m++){
-							if (i == state[h][m]){
-								sum[0] += theta[t][m][j] * _event[h][t][k];
-								sum[1] += theta[t][m][j];
-							}
-						}
+						sum[0] += theta[t][m][j] * _event[h][t][k];
+						sum[1] += theta[t][m][j];
 					}
 					#pragma omp atomic
-					new_mean[j][i][k][0] += sum[0];
+					new_mean[j][state[h][m]][k][0] += sum[0];
 					#pragma omp atomic
-					new_mean[j][i][k][1] += sum[1];
+					new_mean[j][state[h][m]][k][1] += sum[1];
 				}
 			}
+		}
 
-			for (int j = 0; j < number_gaussian_components; j++){
-				for (int k = 0; k < dimension_event; k++){
-					if (!strcmp(type_covariance, "diagonal")){
+		for (int j = 0; j < number_gaussian_components; j++){
+			for (int k = 0; k < dimension_event; k++){
+				if (!strcmp(type_covariance, "diagonal")){
+					for (int n = 0; n < number_states[h]; n++){
 						double sum[2] = { 0, };
 
 						for (int t = 0; t < length_event[h]; t++){
-							for (int n = 0; n < number_states[h]; n++){
-								if (i == state[h][n]){
-									sum[0] += theta[t][n][j] * (_event[h][t][k] - GMM[i]->mean[j][k]) * (_event[h][t][k] - GMM[i]->mean[j][k]);
-									sum[1] += theta[t][n][j];
-								}
-							}
+							sum[0] += theta[t][n][j] * (_event[h][t][k] - GMM[state[h][n]]->mean[j][k]) * (_event[h][t][k] - GMM[state[h][n]]->mean[j][k]);
+							sum[1] += theta[t][n][j];
 						}
 						#pragma omp atomic
-						new_diagonal_covariance[j][i][k][0] += sum[0];
+						new_diagonal_covariance[j][state[h][n]][k][0] += sum[0];
 						#pragma omp atomic
-						new_diagonal_covariance[j][i][k][1] += sum[1];
+						new_diagonal_covariance[j][state[h][n]][k][1] += sum[1];
 					}
-					else{
-						for (int l = 0; l < dimension_event; l++){
+				}
+				else{
+					for (int l = 0; l < dimension_event; l++){
+						for (int n = 0; n < number_states[h]; n++){
 							double sum[2] = { 0, };
 
 							for (int t = 0; t < length_event[h]; t++){
-								for (int n = 0; n < number_states[h]; n++){
-									if (i == state[h][n]){
-										sum[0] += theta[t][n][j] * (_event[h][t][k] - GMM[i]->mean[j][k]) * (_event[h][t][l] - GMM[i]->mean[j][l]);
-										sum[1] += theta[t][n][j];
-									}
-								}
+								sum[0] += theta[t][n][j] * (_event[h][t][k] - GMM[state[h][n]]->mean[j][k]) * (_event[h][t][l] - GMM[state[h][n]]->mean[j][l]);
+								sum[1] += theta[t][n][j];
 							}
 							#pragma omp atomic
-							new_covariance[j][i][k][l][0] += sum[0];
+							new_covariance[j][state[h][n]][k][l][0] += sum[0];
 							#pragma omp atomic
-							new_covariance[j][i][k][l][1] += sum[1];
+							new_covariance[j][state[h][n]][k][l][1] += sum[1];
 						}
 					}
 				}
