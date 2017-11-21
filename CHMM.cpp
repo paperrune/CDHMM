@@ -633,7 +633,7 @@ double Continuous_Hidden_Markov_Model::Baum_Welch_Algorithm(int number_events, i
 				}
 				else{
 					for (int l = 0; l < dimension_event; l++){
-						GMM[i]->covariance[j][k][k] = (new_covariance[j][i][k][k][0] == 0) ? (0) : (new_covariance[j][i][k][k][0] / new_covariance[j][i][k][k][1]);
+						GMM[i]->covariance[j][k][l] = (new_covariance[j][i][k][l][0] == 0) ? (0) : (new_covariance[j][i][k][l][0] / new_covariance[j][i][k][l][1]);
 					}
 				}
 			}
