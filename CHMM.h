@@ -16,8 +16,8 @@ private:
 
 	bool Access_State(int previous_state_index, int state_index);
 	
-	double Backward_Algorithm(int length_event, int number_states, int state[], double scale[], double **beta, double **likelihood);
-	double Forward_Algorithm(int length_event, int number_states, int state[], double scale[], double **alpha, double **likelihood);
+	double Backward_Algorithm(int length_event, int number_states, int state[], double **beta, double **likelihood);
+	double Forward_Algorithm(int length_event, int number_states, int state[], double **alpha, double **likelihood);
 public:
 	int maximum_length_label;
 
