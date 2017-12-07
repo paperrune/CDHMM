@@ -24,13 +24,15 @@ bool Continuous_Hidden_Markov_Model::Access_State(int previous_state_index, int 
 	return (!strcmp(type_model, "ergodic") || (j - i == 0) || (j - i == 1));
 }
 
-double Continuous_Hidden_Markov_Model::Backward_Algorithm(int length_event, int number_states, int state[], double scale[], double **beta, double **likelihood){
+double Continuous_Hidden_Markov_Model::Backward_Algorithm(int length_event, int number_states, int state[], double **beta, double **likelihood){
 	double log_likelihood = 0;
 
 	for (int t = length_event - 1; t >= 0; t--){
+		double scale = 0;
+
 		if (t == length_event - 1){
 			for (int i = 0; i < number_states; i++){
-				beta[t][i] = (!strcmp(type_model, "ergodic") || i == number_states - 1);
+				scale += (beta[t][i] = (!strcmp(type_model, "ergodic") || i == number_states - 1));
 			}
 		}
 		else
@@ -46,27 +48,30 @@ double Continuous_Hidden_Markov_Model::Backward_Algorithm(int length_event, int 
 						sum += transition_probability[k][l] * likelihood[t + 1][j] * beta[t + 1][j];
 					}
 				}
-				beta[t][i] = sum;
+				scale += (beta[t][i] = sum);
 			}
 		}
-		for (int i = 0; i < number_states; i++){
-			beta[t][i] *= scale[t];
+		if (!_finite(log(scale = 1 / scale)) || _isnan(log(scale))){
+			fprintf(stderr, "[Backward Algorithm] [scale: %lf]\n", scale);
 		}
-		// log_likelihood += log(scale[t]);
+		for (int i = 0; i < number_states; i++){
+			beta[t][i] *= scale;
+		}
+		// log_likelihood += log(scale);
 	}
 	return -log_likelihood;
 }
-double Continuous_Hidden_Markov_Model::Forward_Algorithm(int length_event, int number_states, int state[], double scale[], double **alpha, double **likelihood){
+double Continuous_Hidden_Markov_Model::Forward_Algorithm(int length_event, int number_states, int state[], double **alpha, double **likelihood){
 	double log_likelihood = 0;
 
 	for (int t = 0; t < length_event; t++){
-		double sum_alpha = 0;
+		double scale = 0;
 
 		if (t == 0){
 			for (int i = 0; i < number_states; i++){
 				int j = state[i];
 
-				sum_alpha += (alpha[t][i] = (!strcmp(type_model, "ergodic") || i == 0) * initial_probability[j] * likelihood[t][i]);
+				scale += (alpha[t][i] = (!strcmp(type_model, "ergodic") || i == 0) * initial_probability[j] * likelihood[t][i]);
 			}
 		}
 		else
@@ -82,18 +87,18 @@ double Continuous_Hidden_Markov_Model::Forward_Algorithm(int length_event, int n
 						sum += alpha[t - 1][j] * transition_probability[l][k];
 					}
 				}
-				sum_alpha += (alpha[t][i] = sum * likelihood[t][i]);
+				scale += (alpha[t][i] = sum * likelihood[t][i]);
 			}
 		}
 
 		// scale
-		if (!_finite(log(scale[t] = 1.0 / sum_alpha)) || _isnan(log(scale[t]))){
-			fprintf(stderr, "[Forward Algorithm] [scale[%d]: %lf]\n", t, scale[t]);
+		if (!_finite(log(scale = 1 / scale)) || _isnan(log(scale))){
+			fprintf(stderr, "[Forward Algorithm] [scale: %lf]\n", scale);
 		}
 		for (int i = 0; i < number_states; i++){
-			alpha[t][i] *= scale[t];
+			alpha[t][i] *= scale;
 		}
-		log_likelihood += log(scale[t]);
+		log_likelihood += log(scale);
 	}
 	return -log_likelihood;
 }
@@ -379,8 +384,6 @@ double Continuous_Hidden_Markov_Model::Baum_Welch_Algorithm(int number_events, i
 
 	#pragma omp parallel for
 	for (int h = 0; h < number_events; h++){
-		double *scale = new double[length_event[h]];
-
 		double **alpha = new double*[length_event[h]];
 		double **beta = new double*[length_event[h]];
 		double **gamma = new double*[length_event[h]];
@@ -415,8 +418,8 @@ double Continuous_Hidden_Markov_Model::Baum_Welch_Algorithm(int number_events, i
 		}
 
 		#pragma omp atomic
-		log_likelihood += Forward_Algorithm(length_event[h], number_states[h], state[h], scale, alpha, likelihood);
-		Backward_Algorithm(length_event[h], number_states[h], state[h], scale, beta, likelihood);
+		log_likelihood += Forward_Algorithm(length_event[h], number_states[h], state[h], alpha, likelihood);
+		Backward_Algorithm(length_event[h], number_states[h], state[h], beta, likelihood);
 
 		for (int t = 0; t < length_event[h]; t++){
 			double sum = 0;
@@ -603,7 +606,6 @@ double Continuous_Hidden_Markov_Model::Baum_Welch_Algorithm(int number_events, i
 		delete[] gamma;
 		delete[] gaussian_distribution;
 		delete[] likelihood;
-		delete[] scale;
 		delete[] theta;
 	}
 
