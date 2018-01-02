@@ -193,12 +193,7 @@ void Continuous_Hidden_Markov_Model::Initialize(int number_events, int length_ev
 
 	for (int i = 0, index = 0; i < number_events; i++){
 		for (int j = 0; j < length_event[i]; j++){
-			data[index] = new double[dimension_event];
-
-			for (int k = 0; k < dimension_event; k++){
-				data[index][k] = _event[i][j][k];
-			}
-			index++;
+			data[index++] = _event[i][j];
 		}
 	}
 
@@ -220,10 +215,6 @@ void Continuous_Hidden_Markov_Model::Initialize(int number_events, int length_ev
 			}
 			GMM[i]->weight[j] = 1.0 / number_gaussian_components;
 		}
-	}
-
-	for (int i = 0; i < number_data; i++){
-		delete[] data[i];
 	}
 	delete[] data;
 }
