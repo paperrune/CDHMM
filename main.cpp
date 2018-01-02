@@ -178,7 +178,7 @@ int main(){
 				delete[] optimal_label_sequence;
 				delete[] optimal_state_sequence;
 			}
-			printf("score: %d / %d, %d / %d  ℓ: %lf  step %d  %.2lf sec\n", number_correct[0], number_training, number_correct[1], number_test, log_likelihood, h + 1, (double)(clock() - time) / CLOCKS_PER_SEC);
+			printf("score: %d / %d, %d / %d  L: %lf  step %d  %.2lf sec\n", number_correct[0], number_training, number_correct[1], number_test, log_likelihood, h + 1, (double)(clock() - time) / CLOCKS_PER_SEC);
 		}
 	
 		for(int i = 0;i < number_training;i++){
