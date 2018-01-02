@@ -1,5 +1,3 @@
-#define _CRT_SECURE_NO_WARNINGS
-
 #include <float.h>
 #include <limits>
 #include <math.h>
