@@ -379,7 +379,7 @@ double Continuous_Hidden_Markov_Model::Baum_Welch_Algorithm(int number_events, i
 		double **likelihood = new double*[length_event[h]];
 
 		double ***gaussian_distribution = new double**[length_event[h]];
-		double ***theta = new double**[length_event[h]];
+		double ***theta = new double**[number_states[h]];
 
 		for (int t = 0; t < length_event[h]; t++){
 			alpha[t] = new double[number_states[h]];
@@ -387,22 +387,32 @@ double Continuous_Hidden_Markov_Model::Baum_Welch_Algorithm(int number_events, i
 			gamma[t] = new double[number_states[h]];
 			gaussian_distribution[t] = new double*[number_states[h]];
 			likelihood[t] = new double[number_states[h]];
-			theta[t] = new double*[number_states[h]];
 
 			for (int i = 0; i < number_states[h]; i++){
 				gaussian_distribution[t][i] = new double[number_gaussian_components];
-				theta[t][i] = new double[number_gaussian_components];
+			}
+		}
+		for (int i = 0; i < number_states[h]; i++){
+			theta[i] = new double*[number_gaussian_components];
+
+			for (int j = 0; j < number_gaussian_components; j++){
+				theta[i][j] = new double[length_event[h]];
 			}
 		}
 
 		for (int t = 0; t < length_event[h]; t++){
+			double sum = 0;
+
 			for (int i = 0; i < number_states[h]; i++){
 				int k = state[h][i];
 
 				for (int j = 0; j < number_gaussian_components; j++){
 					gaussian_distribution[t][i][j] = GMM[k]->Gaussian_Distribution(_event[h][t], j);
 				}
-				likelihood[t][i] = GMM[k]->Calculate_Likelihood(_event[h][t], gaussian_distribution[t][i]);
+				sum += (likelihood[t][i] = GMM[k]->Calculate_Likelihood(_event[h][t], gaussian_distribution[t][i]));
+			}
+			for (int i = 0; i < number_states[h]; i++){
+				likelihood[t][i] /= sum;
 			}
 		}
 
@@ -476,13 +486,13 @@ double Continuous_Hidden_Markov_Model::Baum_Welch_Algorithm(int number_events, i
 							}
 						}
 					}
-					sum_theta += (theta[t][i][j] = sum * GMM[l]->weight[j] * gaussian_distribution[t][i][j] * beta[t][i]);
+					sum_theta += (theta[i][j][t] = sum * GMM[l]->weight[j] * gaussian_distribution[t][i][j] * beta[t][i]);
 				}
 			}
 
 			for (int i = 0; i < number_states[h]; i++){
 				for (int j = 0; j < number_gaussian_components; j++){
-					theta[t][i][j] /= sum_theta;
+					theta[i][j][t] /= sum_theta;
 				}
 			}
 		}
@@ -516,7 +526,7 @@ double Continuous_Hidden_Markov_Model::Baum_Welch_Algorithm(int number_events, i
 				double sum[2] = { 0, };
 
 				for (int t = 0; t < length_event[h]; t++){
-					sum[0] += theta[t][l][j];
+					sum[0] += theta[l][j][t];
 					sum[1] += gamma[t][l];
 				}
 				#pragma omp atomic
@@ -532,8 +542,8 @@ double Continuous_Hidden_Markov_Model::Baum_Welch_Algorithm(int number_events, i
 					double sum[2] = { 0, };
 
 					for (int t = 0; t < length_event[h]; t++){
-						sum[0] += theta[t][m][j] * _event[h][t][k];
-						sum[1] += theta[t][m][j];
+						sum[0] += theta[m][j][t] * _event[h][t][k];
+						sum[1] += theta[m][j][t];
 					}
 					#pragma omp atomic
 					new_mean[j][state[h][m]][k][0] += sum[0];
@@ -550,8 +560,8 @@ double Continuous_Hidden_Markov_Model::Baum_Welch_Algorithm(int number_events, i
 						double sum[2] = { 0, };
 
 						for (int t = 0; t < length_event[h]; t++){
-							sum[0] += theta[t][n][j] * (_event[h][t][k] - GMM[state[h][n]]->mean[j][k]) * (_event[h][t][k] - GMM[state[h][n]]->mean[j][k]);
-							sum[1] += theta[t][n][j];
+							sum[0] += theta[n][j][t] * (_event[h][t][k] - GMM[state[h][n]]->mean[j][k]) * (_event[h][t][k] - GMM[state[h][n]]->mean[j][k]);
+							sum[1] += theta[n][j][t];
 						}
 						#pragma omp atomic
 						new_diagonal_covariance[j][state[h][n]][k][0] += sum[0];
@@ -565,8 +575,8 @@ double Continuous_Hidden_Markov_Model::Baum_Welch_Algorithm(int number_events, i
 							double sum[2] = { 0, };
 
 							for (int t = 0; t < length_event[h]; t++){
-								sum[0] += theta[t][n][j] * (_event[h][t][k] - GMM[state[h][n]]->mean[j][k]) * (_event[h][t][l] - GMM[state[h][n]]->mean[j][l]);
-								sum[1] += theta[t][n][j];
+								sum[0] += theta[n][j][t] * (_event[h][t][k] - GMM[state[h][n]]->mean[j][k]) * (_event[h][t][l] - GMM[state[h][n]]->mean[j][l]);
+								sum[1] += theta[n][j][t];
 							}
 							#pragma omp atomic
 							new_covariance[j][state[h][n]][k][l][0] += sum[0];
@@ -578,24 +588,29 @@ double Continuous_Hidden_Markov_Model::Baum_Welch_Algorithm(int number_events, i
 			}
 		}
 
+		for (int i = 0; i < number_states[h]; i++){
+			for (int j = 0; j < number_gaussian_components; j++){
+				delete[] theta[i][j];
+			}
+			delete[] theta[i];
+		}
+		delete[] theta;
+
 		for (int t = 0; t < length_event[h]; t++){
 			for (int i = 0; i < number_states[h]; i++){
 				delete[] gaussian_distribution[t][i];
-				delete[] theta[t][i];
 			}
 			delete[] alpha[t];
 			delete[] beta[t];
 			delete[] gamma[t];
 			delete[] gaussian_distribution[t];
 			delete[] likelihood[t];
-			delete[] theta[t];
 		}
 		delete[] alpha;
 		delete[] beta;
 		delete[] gamma;
 		delete[] gaussian_distribution;
 		delete[] likelihood;
-		delete[] theta;
 	}
 
 	#pragma omp parallel for
