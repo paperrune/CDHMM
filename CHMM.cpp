@@ -51,6 +51,7 @@ double Continuous_Hidden_Markov_Model::Backward_Algorithm(int length_event, int 
 		}
 		if (!_finite(log(scale = 1 / scale)) || _isnan(log(scale))){
 			fprintf(stderr, "[Backward Algorithm] [scale: %lf]\n", scale);
+			exit(0);
 		}
 		for (int i = 0; i < number_states; i++){
 			beta[t][i] *= scale;
@@ -92,6 +93,7 @@ double Continuous_Hidden_Markov_Model::Forward_Algorithm(int length_event, int n
 		// scale
 		if (!_finite(log(scale = 1 / scale)) || _isnan(log(scale))){
 			fprintf(stderr, "[Forward Algorithm] [scale: %lf]\n", scale);
+			exit(0);
 		}
 		for (int i = 0; i < number_states; i++){
 			alpha[t][i] *= scale;
@@ -105,7 +107,6 @@ Continuous_Hidden_Markov_Model::Continuous_Hidden_Markov_Model(bool **state_conn
 	strcpy(this->type_covariance, type_covariance);
 	strcpy(this->type_model, type_model);
 	this->dimension_event = dimension_event;
-	this->maximum_length_label = 0;
 	this->number_gaussian_components = number_gaussian_components;
 	this->number_states = number_states;
 	this->state_connection = new bool*[number_states];
@@ -123,9 +124,6 @@ Continuous_Hidden_Markov_Model::Continuous_Hidden_Markov_Model(bool **state_conn
 	for (int i = 0; i < number_states; i++){
 		int length_label = (int)strlen(state_label[i]) + 1;
 
-		if (maximum_length_label < length_label){
-			maximum_length_label = length_label;
-		}
 		this->state_label[i] = new char[length_label];
 		strcpy(this->state_label[i], state_label[i]);
 	}
@@ -243,8 +241,13 @@ void Continuous_Hidden_Markov_Model::Load_Parameter(char path[]){
 		for (int i = 0; i < number_states; i++){
 			for (int j = 0; j < number_gaussian_components; j++){
 				for (int k = 0; k < dimension_event; k++){
-					for (int l = 0; l < dimension_event; l++){
-						fscanf(file, "%lf", &(GMM[i]->covariance[j][k][l]));
+					if (!strcmp(type_covariance, "diagonal")){
+						fscanf(file, "%lf", &(GMM[i]->diagonal_covariance[j][k]));
+					}
+					else{
+						for (int l = 0; l < dimension_event; l++){
+							fscanf(file, "%lf", &(GMM[i]->covariance[j][k][l]));
+						}
 					}
 				}
 			}
@@ -282,13 +285,18 @@ void Continuous_Hidden_Markov_Model::Save_Parameter(char path[]){
 	for (int i = 0; i < number_states; i++){
 		for (int j = 0; j < number_gaussian_components; j++){
 			for (int k = 0; k < dimension_event; k++){
-				for (int l = 0; l < dimension_event; l++){
-					fprintf(file, "%f\n", GMM[i]->covariance[j][k][l]);
+				if (!strcmp(type_covariance, "diagonal")){
+					fprintf(file, "%f\n", GMM[i]->diagonal_covariance[j][k]);
+				}
+				else{
+					for (int l = 0; l < dimension_event; l++){
+						fprintf(file, "%f\n", GMM[i]->covariance[j][k][l]);
+					}
 				}
 			}
 		}
 	}
-	printf("Parameter Saved\n");
+	// printf("Parameter Saved\n");
 	fclose(file);
 }
 
@@ -746,7 +754,7 @@ double Continuous_Hidden_Markov_Model::Evaluation(int length_event, double **_ev
 
 	return log_likelihood;
 }
-double Continuous_Hidden_Markov_Model::Viterbi_Algorithm(char optimal_label_sequence[], int optimal_state_sequence[], int length_event, double **_event){
+double Continuous_Hidden_Markov_Model::Viterbi_Algorithm(char **optimal_label_sequence, int **optimal_state_sequence, int length_event, double **_event){
 	char ***label = new char**[length_event];
 
 	int *state_sequence = new int[length_event];
@@ -763,7 +771,7 @@ double Continuous_Hidden_Markov_Model::Viterbi_Algorithm(char optimal_label_sequ
 		label[t] = new char*[number_states];
 
 		for (int i = 0; i < number_states; i++){
-			strcpy(label[t][i] = new char[maximum_length_label], "");
+			label[t][i] = NULL;
 		}
 	}
 
@@ -790,6 +798,7 @@ double Continuous_Hidden_Markov_Model::Viterbi_Algorithm(char optimal_label_sequ
 
 			if (t == 0){
 				delta[t][i] = initial_probability[i] * likelihood[i];
+				label[t][i] = state_label[i];
 			}
 			else{
 				int argmax;
@@ -808,7 +817,7 @@ double Continuous_Hidden_Markov_Model::Viterbi_Algorithm(char optimal_label_sequ
 				gamma[t][i] = argmax;
 
 				if (strcmp(state_label[i], state_label[argmax])){
-					strcpy(label[t - 1][argmax], state_label[argmax]);
+					label[t][i] = state_label[i];
 				}
 			}
 			sum_delta += delta[t][i];
@@ -830,7 +839,6 @@ double Continuous_Hidden_Markov_Model::Viterbi_Algorithm(char optimal_label_sequ
 				}
 			}
 			Search_State_Sequence(t, argmax, state_sequence, gamma);
-			strcpy(label[t - 1][argmax], state_label[argmax]);
 		}
 		log_likelihood -= log(scale = 1 / sum_delta);
 
@@ -841,28 +849,34 @@ double Continuous_Hidden_Markov_Model::Viterbi_Algorithm(char optimal_label_sequ
 	}
 
 	if (_finite(log_likelihood)){
-		char *recent_label = 0;
+		if (optimal_label_sequence){
+			char *label_sequence = NULL;
 
-		if (optimal_label_sequence) strcpy(optimal_label_sequence, "");
+			for (int t = 0; t < length_event; t++){
+				if (label[t][state_sequence[t]] && strlen(label[t][state_sequence[t]])){
+					if (label_sequence == NULL){
+						strcpy(label_sequence = new char[1], "");
+					}
+					label_sequence = (char*)realloc(label_sequence, strlen(label_sequence) + strlen(label[t][state_sequence[t]]) + 2);
 
-		for (int t = 0; t < length_event; t++){
-			if (optimal_label_sequence && strcmp(label[t][state_sequence[t]], "") && (recent_label == 0 || strcmp(label[t][state_sequence[t]], recent_label))){
-				recent_label = label[t][state_sequence[t]];
-				if(strlen(optimal_label_sequence)){
-					strcat(optimal_label_sequence, " ");
+					if (strlen(label_sequence)){
+						strcat(label_sequence, " ");
+					}
+					strcat(label_sequence, label[t][state_sequence[t]]);
 				}
-				strcat(optimal_label_sequence, label[t][state_sequence[t]]);				
 			}
-			if (optimal_state_sequence){
-				optimal_state_sequence[t] = state_sequence[t];
+			(*optimal_label_sequence) = label_sequence;
+		}
+		if (optimal_state_sequence){
+			(*optimal_state_sequence) = new int[length_event];
+
+			for (int t = 0; t < length_event; t++){
+				(*optimal_state_sequence)[t] = state_sequence[t];
 			}
 		}
 	}
 
 	for (int t = 0; t < length_event; t++){
-		for (int i = 0; i < number_states; i++){
-			delete[] label[t][i];
-		}
 		delete[] delta[t];
 		delete[] gamma[t];
 		delete[] label[t];
