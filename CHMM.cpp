@@ -848,8 +848,10 @@ double Continuous_Hidden_Markov_Model::Viterbi_Algorithm(char optimal_label_sequ
 		for (int t = 0; t < length_event; t++){
 			if (optimal_label_sequence && strcmp(label[t][state_sequence[t]], "") && (recent_label == 0 || strcmp(label[t][state_sequence[t]], recent_label))){
 				recent_label = label[t][state_sequence[t]];
-				strcat(optimal_label_sequence, label[t][state_sequence[t]]);
-				strcat(optimal_label_sequence, " ");
+				if(strlen(optimal_label_sequence)){
+					strcat(optimal_label_sequence, " ");
+				}
+				strcat(optimal_label_sequence, label[t][state_sequence[t]]);				
 			}
 			if (optimal_state_sequence){
 				optimal_state_sequence[t] = state_sequence[t];
