@@ -15,14 +15,12 @@ private:
 	void Search_State_Sequence(int event_index, int state_index, int state_sequence[], int **gamma);
 
 	bool Access_State(int previous_state_index, int state_index);
-	
+
 	double Backward_Algorithm(int length_event, int number_states, int state[], double **beta, double **likelihood);
 	double Forward_Algorithm(int length_event, int number_states, int state[], double **alpha, double **likelihood);
 public:
-	int maximum_length_label;
-
 	double *initial_probability;
-	
+
 	double **transition_probability;
 
 	Gaussian_Mixture_Model **GMM;
@@ -36,5 +34,5 @@ public:
 
 	double Baum_Welch_Algorithm(int number_events, int length_event[], int number_states[], int **state, double minimum_variance, double ***_event);
 	double Evaluation(int length_event, double **_event);
-	double Viterbi_Algorithm(char optimal_label_sequence[], int optimal_state_sequence[], int length_event, double **_event);
+	double Viterbi_Algorithm(char **optimal_label_sequence, int **optimal_state_sequence, int length_event, double **_event);
 };
