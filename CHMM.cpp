@@ -523,9 +523,9 @@ double Continuous_Hidden_Markov_Model::Baum_Welch_Algorithm(int number_events, i
 			for (int t = 0; t < length_event[h] - 1; t++){
 				sum += gamma[t][l];
 			}
-			for (int j = 0; j < this->number_states; j++){
+			for (int j = 0; j <number_states[h]; j++){
 				#pragma omp atomic
-				new_transition_probability[state[h][l]][j][1] += sum;
+				new_transition_probability[state[h][l]][state[h][j]][1] += sum;
 			}
 		}
 
