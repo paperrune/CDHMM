@@ -153,7 +153,7 @@ Continuous_Hidden_Markov_Model::~Continuous_Hidden_Markov_Model(){
 	delete GMM;
 }
 
-void Continuous_Hidden_Markov_Model::Initialize(int number_events, int length_event[], double ***_event, int seed){
+void Continuous_Hidden_Markov_Model::Initialize(int number_events, int length_event[], double ***_event){
 	int number_data = 0;
 
 	double sum = 0;
@@ -162,23 +162,11 @@ void Continuous_Hidden_Markov_Model::Initialize(int number_events, int length_ev
 
 	KMeans kmeans = KMeans(dimension_event, number_gaussian_components);
 
-	srand(seed);
-
 	for (int i = 0; i < number_states; i++){
-		sum += (initial_probability[i] = 1.0 / number_states + 0.01 * rand() / RAND_MAX);
-	}
-	for (int i = 0; i < number_states; i++){
-		initial_probability[i] /= sum;
-	}
-
-	for (int i = 0; i < number_states; i++){
-		double sum = 0;
-
+		initial_probability[i] = 1.0 / number_states;
+		
 		for (int j = 0; j < number_states; j++){
-			sum += (transition_probability[i][j] = 1.0 / number_states + 0.01 * rand() / RAND_MAX);
-		}
-		for (int j = 0; j < number_states; j++){
-			transition_probability[i][j] /= sum;
+			transition_probability[i][j] = 1.0 / number_states;
 		}
 	}
 
