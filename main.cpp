@@ -150,7 +150,7 @@ int main(){
 				state[i][j] = ((j / 3 == 0 || j / 3 == 2) ? (30) : (3 * label[i])) + (j % 3);
 			}
 		}
-		CHMM->Initialize(number_training, length_event, _event, 0);
+		CHMM->Initialize(number_training, length_event, _event);
 
 		for (int h = 0, time = clock(); h < number_iterations; h++){
 			int number_correct[2] = { 0, };
