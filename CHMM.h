@@ -1,14 +1,13 @@
-#include <hash_map>
-#include "GMM.h"
+#include <unordered_map>
 
-using namespace stdext;
+#include "GMM.h"
 
 class Continuous_Hidden_Markov_Model{
 private:
-	hash_map<int, bool> *state_connection;
+	unordered_map<int, bool> *state_connection;
 
-	char type_covariance[16];
-	char type_model[8];
+	string type_covariance;
+	string type_model;
 
 	int dimension_event;
 	int number_gaussian_components;
@@ -17,30 +16,30 @@ private:
 
 	bool Access_State(int previous_state_index, int state_index);
 
-	double Backward_Algorithm(int length_event, int number_states, int state[], double **beta, double **likelihood);
-	double Forward_Algorithm(int length_event, int number_states, int state[], double **alpha, double **likelihood);
+	double Backward_Algorithm(int length_event, vector<int> state, double **beta, double **likelihood);
+	double Forward_Algorithm(int length_event, vector<int> state, double **alpha, double **likelihood);
 
 public:
-	char **state_label;
+	vector<string> state_label;
 
 	int number_states;
 
 	double *initial_probability;
 
-	hash_map<int, double> *transition_probability;
-	hash_map<int, double> *valid_transition;
+	unordered_map<int, double> *transition_probability;
+	unordered_map<int, double> *valid_transition;
 
 	Gaussian_Mixture_Model **GMM;
 
-	Continuous_Hidden_Markov_Model(char path[]);
-	Continuous_Hidden_Markov_Model(hash_map<int, bool> *state_connection, char type_covariance[], char type_model[], char **state_label, int dimension_event, int number_gaussian_components, int number_states);
+	Continuous_Hidden_Markov_Model(string path);
+	Continuous_Hidden_Markov_Model(unordered_map<int, bool> state_connection[], string type_covariance, string type_model, vector<string> state_label, int dimension_event, int number_gaussian_components, int number_states);
 	~Continuous_Hidden_Markov_Model();
 
 	void Initialize(int number_events, int length_event[], double ***_event);
-	void Load_Model(char path[], int buffer_size = 1000);
-	void Save_Model(char path[]);
+	void Load_Model(string path);
+	void Save_Model(string path);
 
-	double Baum_Welch_Algorithm(int number_events, int length_event[], int number_states[], int **state, double minimum_variance, double ***_event);
+	double Baum_Welch_Algorithm(int number_events, int length_event[], vector<int> state[], double minimum_variance, double ***_event);
 	double Evaluation(int length_event, double **_event);
-	double Viterbi_Algorithm(char **optimal_label_sequence, int **optimal_state_sequence, int length_event, double **_event);
+	double Viterbi_Algorithm(string *optimal_label_sequence, int **optimal_state_sequence, int length_event, double **_event);
 };

@@ -1,9 +1,6 @@
-#include <float.h>
-#include <limits>
-#include <math.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <fstream>
+#include <iostream>
+#include <time.h>
 
 #include "CHMM.h"
 #include "Kmeans.h"
@@ -19,26 +16,26 @@ bool Continuous_Hidden_Markov_Model::Access_State(int previous_state_index, int 
 	int i = previous_state_index;
 	int j = state_index;
 
-	return (!strcmp(type_model, "ergodic") || (j - i == 0) || (j - i == 1) || (j - i == 2));
+	return (!type_model.compare("ergodic") || (j - i == 0) || (j - i == 1) || (j - i == 2));
 }
 
-double Continuous_Hidden_Markov_Model::Backward_Algorithm(int length_event, int number_states, int state[], double **beta, double **likelihood){
+double Continuous_Hidden_Markov_Model::Backward_Algorithm(int length_event, vector<int> state, double **beta, double **likelihood){
 	double log_likelihood = 0;
 
 	for (int t = length_event - 1; t >= 0; t--){
 		double scale = 0;
 
 		if (t == length_event - 1){
-			for (int i = 0; i < number_states; i++){
-				scale += (beta[t][i] = (!strcmp(type_model, "ergodic") || i == number_states - 1));
+			for (int i = 0; i < state.size(); i++){
+				scale += (beta[t][i] = (!type_model.compare("ergodic") || i == state.size() - 1));
 			}
 		}
 		else
 		if (t <= length_event - 2){
-			for (int i = 0; i < number_states; i++){
+			for (int i = 0; i < state.size(); i++){
 				double sum = 0;
 
-				for (int j = 0; j < number_states; j++){
+				for (int j = 0; j < state.size(); j++){
 					int k = state[i];
 					int l = state[j];
 
@@ -50,35 +47,35 @@ double Continuous_Hidden_Markov_Model::Backward_Algorithm(int length_event, int 
 			}
 		}
 		if (!_finite(log(scale = 1 / scale)) || _isnan(log(scale))){
-			fprintf(stderr, "[Backward Algorithm] [scale: %lf]\n", scale);
+			cerr << "[Backward Algorithm] [scale: " << scale << "]" << endl;
 			return 0;
 		}
-		for (int i = 0; i < number_states; i++){
+		for (int i = 0; i < state.size(); i++){
 			beta[t][i] *= scale;
 		}
 		// log_likelihood += log(scale);
 	}
 	return -log_likelihood;
 }
-double Continuous_Hidden_Markov_Model::Forward_Algorithm(int length_event, int number_states, int state[], double **alpha, double **likelihood){
+double Continuous_Hidden_Markov_Model::Forward_Algorithm(int length_event, vector<int> state, double **alpha, double **likelihood){
 	double log_likelihood = 0;
 
 	for (int t = 0; t < length_event; t++){
 		double scale = 0;
 
 		if (t == 0){
-			for (int i = 0; i < number_states; i++){
+			for (int i = 0; i < state.size(); i++){
 				int j = state[i];
 
-				scale += (alpha[t][i] = (!strcmp(type_model, "ergodic") || i == 0) * initial_probability[j] * likelihood[t][i]);
+				scale += (alpha[t][i] = (!type_model.compare("ergodic") || i == 0) * initial_probability[j] * likelihood[t][i]);
 			}
 		}
 		else
 		if (t >= 1){
-			for (int i = 0; i < number_states; i++){
+			for (int i = 0; i < state.size(); i++){
 				double sum = 0;
 
-				for (int j = 0; j < number_states; j++){
+				for (int j = 0; j < state.size(); j++){
 					int k = state[i];
 					int l = state[j];
 
@@ -92,10 +89,10 @@ double Continuous_Hidden_Markov_Model::Forward_Algorithm(int length_event, int n
 
 		// scale
 		if (!_finite(log(scale = 1 / scale)) || _isnan(log(scale))){
-			fprintf(stderr, "[Forward Algorithm] [scale: %lf]\n", scale);
+			cerr << "[Forward Algorithm] [scale: " << scale << "]" << endl;
 			return 0;
 		}
-		for (int i = 0; i < number_states; i++){
+		for (int i = 0; i < state.size(); i++){
 			alpha[t][i] *= scale;
 		}
 		log_likelihood += log(scale);
@@ -103,48 +100,42 @@ double Continuous_Hidden_Markov_Model::Forward_Algorithm(int length_event, int n
 	return -log_likelihood;
 }
 
-Continuous_Hidden_Markov_Model::Continuous_Hidden_Markov_Model(char path[]){
+Continuous_Hidden_Markov_Model::Continuous_Hidden_Markov_Model(string path) {
 	number_states = 0;
 	Load_Model(path);
 }
-Continuous_Hidden_Markov_Model::Continuous_Hidden_Markov_Model(hash_map<int, bool> *state_connection, char type_covariance[], char type_model[], char **state_label, int dimension_event, int number_gaussian_components, int number_states){
-	if (number_states){
-		strcpy(this->type_covariance, type_covariance);
-		strcpy(this->type_model, type_model);
-		this->dimension_event = dimension_event;
-		this->number_gaussian_components = number_gaussian_components;
-		this->number_states = number_states;
-		this->state_connection = new hash_map<int, bool>[number_states];
-		this->state_label = new char*[number_states];
+Continuous_Hidden_Markov_Model::Continuous_Hidden_Markov_Model(unordered_map<int, bool> state_connection[], string type_covariance, string type_model, vector<string> state_label, int dimension_event, int number_gaussian_components, int number_states){
+	this->type_covariance	= type_covariance;
+	this->type_model		= type_model;
+	this->dimension_event	= dimension_event;
+	this->number_gaussian_components = number_gaussian_components;
+	this->number_states		= number_states;
+	this->state_connection	= new unordered_map<int, bool>[number_states];
 
-		for (int i = 0; i < number_states; i++){
-			this->state_connection[i].insert(state_connection[i].begin(), state_connection[i].end());
-		}
-		for (int i = 0; i < number_states; i++){
-			strcpy(this->state_label[i] = new char[strlen(state_label[i]) + 1], state_label[i]);
-		}
+	for (int i = 0; i < number_states; i++){
+		this->state_connection[i].insert(state_connection[i].begin(), state_connection[i].end());
+		this->state_label.push_back(state_label[i]);
+	}
 
-		initial_probability = new double[number_states];
-		transition_probability = new hash_map<int, double>[number_states];
-		valid_transition = new hash_map<int, double>[number_states];
+	initial_probability		= new double[number_states];
+	transition_probability	= new unordered_map<int, double>[number_states];
+	valid_transition		= new unordered_map<int, double>[number_states];
 
-		GMM = new Gaussian_Mixture_Model*[number_states];
+	GMM = new Gaussian_Mixture_Model*[number_states];
 
-		for (int i = 0; i < number_states; i++){
-			GMM[i] = new Gaussian_Mixture_Model(type_covariance, dimension_event, number_gaussian_components);
-		}
+	for (int i = 0; i < number_states; i++){
+		GMM[i] = new Gaussian_Mixture_Model(type_covariance, dimension_event, number_gaussian_components);
 	}
 }
 Continuous_Hidden_Markov_Model::~Continuous_Hidden_Markov_Model(){
-	if (number_states){
-		for (int i = 0; i < number_states; i++){
+	if (number_states) {
+		for (int i = 0; i < number_states; i++) {
 			state_connection[i].clear();
-			delete[] state_label[i];
 		}
 		delete[] state_connection;
-		delete[] state_label;
+		state_label.clear();
 
-		for (int i = 0; i < number_states; i++){
+		for (int i = 0; i < number_states; i++) {
 			transition_probability[i].clear();
 			valid_transition[i].clear();
 			delete GMM[i];
@@ -184,7 +175,7 @@ void Continuous_Hidden_Markov_Model::Initialize(int number_events, int length_ev
 	for (int i = 0; i < this->number_states; i++){
 		for (int j = 0; j < number_gaussian_components; j++){
 			for (int k = 0; k < dimension_event; k++){
-				if (!strcmp(type_covariance, "diagonal")){
+				if (!type_covariance.compare("diagonal")){
 					GMM[i]->diagonal_covariance[j][k] = 1;
 				}
 				else{
@@ -199,19 +190,18 @@ void Continuous_Hidden_Markov_Model::Initialize(int number_events, int length_ev
 	}
 	delete[] data;
 }
-void Continuous_Hidden_Markov_Model::Load_Model(char path[], int buffer_size){
-	FILE *file = fopen(path, "rt");
+void Continuous_Hidden_Markov_Model::Load_Model(string path){
+	ifstream file(path);
 
-	if (file){
-		if (number_states){
-			for (int i = 0; i < number_states; i++){
+	if (file.is_open()){
+		if (number_states) {
+			for (int i = 0; i < number_states; i++) {
 				state_connection[i].clear();
-				delete[] state_label[i];
 			}
 			delete[] state_connection;
-			delete[] state_label;
+			state_label.clear();
 
-			for (int i = 0; i < number_states; i++){
+			for (int i = 0; i < number_states; i++) {
 				transition_probability[i].clear();
 				valid_transition[i].clear();
 				delete GMM[i];
@@ -222,165 +212,160 @@ void Continuous_Hidden_Markov_Model::Load_Model(char path[], int buffer_size){
 			delete GMM;
 		}
 
-		fscanf(file, "%s%s", type_covariance, type_model);
-		fscanf(file, "%d%d%d", &dimension_event, &number_gaussian_components, &number_states);
+		file >> type_covariance;
+		file >> type_model;
+		file >> dimension_event;
+		file >> number_gaussian_components;
+		file >> number_states;
 
-		state_connection = new hash_map<int, bool>[number_states];
+		state_connection = new unordered_map<int, bool>[number_states];
+		initial_probability = new double[number_states];
+		transition_probability = new unordered_map<int, double>[number_states];
+		valid_transition = new unordered_map<int, double>[number_states];
+
+		GMM = new Gaussian_Mixture_Model*[number_states];
+
+		for (int i = 0; i < number_states; i++) {
+			GMM[i] = new Gaussian_Mixture_Model(type_covariance, dimension_event, number_gaussian_components);
+		}
 
 		for (int i = 0, size; i < number_states; i++){
-			fscanf(file, "%d", &size);
+			file >> size;
 
 			for (int j = 0, id; j < size; j++){
-				fscanf(file, "%d", &id);
-				state_connection[i].insert(hash_map<int, bool>::value_type(id, true));
+				file >> id;
+				state_connection[i].insert(pair<int, bool>(id, true));
 			}
 		}
-
-		state_label = new char*[number_states];
-
 		for (int i = 0; i < number_states; i++){
-			char *buffer = new char[buffer_size];
+			string label;
 
-			if (i == 0){
-				fgets(buffer, buffer_size, file);
-			}
-			fgets(buffer, buffer_size, file);
-
-			buffer[strlen(buffer) - 1] = '\0';
-			strcpy(state_label[i] = new char[strlen(buffer) + 1], buffer);
-
-			delete[] buffer;
+			file >> label;
+			state_label.push_back(label);
 		}
 
-		initial_probability = new double[number_states];
-
 		for (int i = 0; i < number_states; i++){
-			fscanf(file, "%lf", &initial_probability[i]);
+			file >> initial_probability[i];
 		}
-
-		transition_probability = new hash_map<int, double>[number_states];
-
 		for (int i = 0, size; i < number_states; i++){
-			fscanf(file, "%d", &size);
+			file >> size;
 
 			for (int j = 0, id; j < size; j++){
 				double value;
 
-				fscanf(file, "%d %lf", &id, &value);
-				transition_probability[i].insert(hash_map<int, double>::value_type(id, value));
+				file >> id >> value;
+				transition_probability[i].insert(pair<int, double>(id, value));
 			}
 		}
-
-		valid_transition = new hash_map<int, double>[number_states];
-
+		for (int i = 0; i < number_states; i++) {
+			valid_transition[i].clear();
+		}
 		for (int i = 0; i < number_states; i++){
 			for (auto p = transition_probability[i].begin(); p != transition_probability[i].end(); p++){
 				if (p->second){
-					valid_transition[p->first].insert(hash_map<int, double>::value_type(i, p->second));
+					valid_transition[p->first].insert(pair<int, double>(i, p->second));
 				}
 			}
 		}
 
-		GMM = new Gaussian_Mixture_Model*[number_states];
-
-		for (int i = 0; i < number_states; i++){
-			GMM[i] = new Gaussian_Mixture_Model(type_covariance, dimension_event, number_gaussian_components);
-		}
-
 		for (int i = 0; i < number_states; i++){
 			for (int j = 0; j < number_gaussian_components; j++){
-				fscanf(file, "%lf", &(GMM[i]->weight[j]));
+				file >> GMM[i]->weight[j];
 			}
 		}
 
 		for (int i = 0; i < number_states; i++){
 			for (int j = 0; j < number_gaussian_components; j++){
 				for (int k = 0; k < dimension_event; k++){
-					fscanf(file, "%lf", &(GMM[i]->mean[j][k]));
+					file >> GMM[i]->mean[j][k];
 				}
 			}
 		}
 		for (int i = 0; i < number_states; i++){
 			for (int j = 0; j < number_gaussian_components; j++){
 				for (int k = 0; k < dimension_event; k++){
-					if (!strcmp(type_covariance, "diagonal")){
-						fscanf(file, "%lf", &(GMM[i]->diagonal_covariance[j][k]));
+					if (!type_covariance.compare("diagonal")){
+						file >> GMM[i]->diagonal_covariance[j][k];
 					}
 					else{
 						for (int l = 0; l < dimension_event; l++){
-							fscanf(file, "%lf", &(GMM[i]->covariance[j][k][l]));
+							file >> GMM[i]->covariance[j][k][l];
 						}
 					}
 				}
 			}
 		}
-		printf("Model Loaded\n");
-		fclose(file);
+		file.close();
 	}
 	else{
-		fprintf(stderr, "[Load_Model], %s not found\n", path);
+		cerr << "[Load_Model], " + path + " not found" << endl;
 	}
 }
-void Continuous_Hidden_Markov_Model::Save_Model(char path[]){
-	FILE *file = fopen(path, "wt");
+void Continuous_Hidden_Markov_Model::Save_Model(string path) {
+	ofstream file(path);
 
-	fprintf(file, "%s\n%s\n", type_covariance, type_model);
-	fprintf(file, "%d\n%d\n%d\n", dimension_event, number_gaussian_components, number_states);
+	file << type_covariance << endl;
+	file << type_model << endl;
+	file << dimension_event << endl;
+	file << number_gaussian_components << endl;
+	file << number_states << endl;
 
-	for (int i = 0; i < number_states; i++){
-		fprintf(file, "%d\n", state_connection[i].size());
+	for (int i = 0; i < number_states; i++) {
+		file << state_connection[i].size() << endl;
 
-		for (auto c = state_connection[i].begin(); c != state_connection[i].end(); c++){
-			fprintf(file, "%d\n", c->first);
+		for (auto c = state_connection[i].begin(); c != state_connection[i].end(); c++) {
+			file << c->first << endl;
 		}
 	}
-	for (int i = 0; i < number_states; i++){
-		fprintf(file, "%s\n", state_label[i]);
+	for (int i = 0; i < number_states; i++) {
+		file << state_label[i] << endl;
 	}
-	for (int i = 0; i < number_states; i++){
-		fprintf(file, "%.12f\n", initial_probability[i]);
-	}
-	for (int i = 0; i < number_states; i++){
-		fprintf(file, "%d\n", transition_probability[i].size());
 
-		for (auto p = transition_probability[i].begin(); p != transition_probability[i].end(); p++){
-			fprintf(file, "%d %.12f\n", p->first, p->second);
+	for (int i = 0; i < number_states; i++) {
+		file << initial_probability[i] << endl;
+	}
+	for (int i = 0; i < number_states; i++) {
+		file << transition_probability[i].size() << endl;
+
+		for (auto p = transition_probability[i].begin(); p != transition_probability[i].end(); p++) {
+			file << p->first << ' ' << p->second << endl;
 		}
 	}
-	for (int i = 0; i < number_states; i++){
-		for (int j = 0; j < number_gaussian_components; j++){
-			fprintf(file, "%.12f\n", GMM[i]->weight[j]);
+
+	for (int i = 0; i < number_states; i++) {
+		for (int j = 0; j < number_gaussian_components; j++) {
+			file << GMM[i]->weight[j] << endl;
 		}
 	}
-	for (int i = 0; i < number_states; i++){
-		for (int j = 0; j < number_gaussian_components; j++){
-			for (int k = 0; k < dimension_event; k++){
-				fprintf(file, "%.12f\n", GMM[i]->mean[j][k]);
+	for (int i = 0; i < number_states; i++) {
+		for (int j = 0; j < number_gaussian_components; j++) {
+			for (int k = 0; k < dimension_event; k++) {
+				file << GMM[i]->mean[j][k] << endl;
 			}
 		}
 	}
-	for (int i = 0; i < number_states; i++){
-		for (int j = 0; j < number_gaussian_components; j++){
-			for (int k = 0; k < dimension_event; k++){
-				if (!strcmp(type_covariance, "diagonal")){
-					fprintf(file, "%.12f\n", GMM[i]->diagonal_covariance[j][k]);
+	for (int i = 0; i < number_states; i++) {
+		for (int j = 0; j < number_gaussian_components; j++) {
+			for (int k = 0; k < dimension_event; k++) {
+				if (!type_covariance.compare("diagonal")) {
+					file << GMM[i]->diagonal_covariance[j][k] << endl;
 				}
-				else{
-					for (int l = 0; l < dimension_event; l++){
-						fprintf(file, "%.12f\n", GMM[i]->covariance[j][k][l]);
+				else {
+					for (int l = 0; l < dimension_event; l++) {
+						file << GMM[i]->covariance[j][k][l] << endl;
 					}
 				}
 			}
 		}
 	}
-	fclose(file);
+	file.close();
 }
 
-double Continuous_Hidden_Markov_Model::Baum_Welch_Algorithm(int number_events, int length_event[], int number_states[], int **state, double minimum_variance, double ***_event){
+double Continuous_Hidden_Markov_Model::Baum_Welch_Algorithm(int number_events, int length_event[], vector<int> state[], double minimum_variance, double ***_event){
 	double log_likelihood = 0;
 
 	double *new_initial_probability = new double[this->number_states];
-	hash_map<int, double> *new_transition_probability[2] = { new hash_map<int, double>[this->number_states], new hash_map<int, double>[this->number_states] };
+	unordered_map<int, double> *new_transition_probability[2] = { new unordered_map<int, double>[this->number_states], new unordered_map<int, double>[this->number_states] };
 
 	double ***new_weight = new double**[number_gaussian_components];
 	double ****new_mean = new double***[number_gaussian_components];
@@ -391,18 +376,18 @@ double Continuous_Hidden_Markov_Model::Baum_Welch_Algorithm(int number_events, i
 		new_initial_probability[i] = 0;
 	}
 	for (int h = 0; h < number_events; h++){
-		for (int i = 0; i < number_states[h]; i++){
-			for (int j = 0; j < number_states[h]; j++){
+		for (int i = 0; i < state[h].size(); i++){
+			for (int j = 0; j < state[h].size(); j++){
 				auto p = transition_probability[state[h][i]].find(state[h][j]);
 
 				if (p == transition_probability[state[h][i]].end()){
-					transition_probability[state[h][i]].insert(hash_map<int, double>::value_type(state[h][j], 1.0 / this->number_states));
+					transition_probability[state[h][i]].insert(pair<int, double>(state[h][j], 1.0 / this->number_states));
 				}
 				if ((p = new_transition_probability[0][state[h][i]].find(state[h][j])) == new_transition_probability[0][state[h][i]].end()){
-					new_transition_probability[0][state[h][i]].insert(hash_map<int, double>::value_type(state[h][j], 0));
+					new_transition_probability[0][state[h][i]].insert(pair<int, double>(state[h][j], 0));
 				}
 				if ((p = new_transition_probability[1][state[h][i]].find(state[h][j])) == new_transition_probability[1][state[h][i]].end()){
-					new_transition_probability[1][state[h][i]].insert(hash_map<int, double>::value_type(state[h][j], 0));
+					new_transition_probability[1][state[h][i]].insert(pair<int, double>(state[h][j], 0));
 				}
 			}
 		}
@@ -426,7 +411,7 @@ double Continuous_Hidden_Markov_Model::Baum_Welch_Algorithm(int number_events, i
 		}
 	}
 
-	if (!strcmp(type_covariance, "diagonal")){
+	if (!type_covariance.compare("diagonal")){
 		new_diagonal_covariance = new double***[number_gaussian_components];
 
 		for (int i = 0; i < number_gaussian_components; i++){
@@ -473,20 +458,20 @@ double Continuous_Hidden_Markov_Model::Baum_Welch_Algorithm(int number_events, i
 		double **likelihood = new double*[length_event[h]];
 
 		double ***gaussian_distribution = new double**[length_event[h]];
-		double ***theta = new double**[number_states[h]];
+		double ***theta = new double**[state[h].size()];
 
 		for (int t = 0; t < length_event[h]; t++){
-			alpha[t] = new double[number_states[h]];
-			beta[t] = new double[number_states[h]];
-			gamma[t] = new double[number_states[h]];
-			gaussian_distribution[t] = new double*[number_states[h]];
-			likelihood[t] = new double[number_states[h]];
+			alpha[t] = new double[state[h].size()];
+			beta[t] = new double[state[h].size()];
+			gamma[t] = new double[state[h].size()];
+			gaussian_distribution[t] = new double*[state[h].size()];
+			likelihood[t] = new double[state[h].size()];
 
-			for (int i = 0; i < number_states[h]; i++){
+			for (int i = 0; i < state[h].size(); i++){
 				gaussian_distribution[t][i] = new double[number_gaussian_components];
 			}
 		}
-		for (int i = 0; i < number_states[h]; i++){
+		for (int i = 0; i < state[h].size(); i++){
 			theta[i] = new double*[number_gaussian_components];
 
 			for (int j = 0; j < number_gaussian_components; j++){
@@ -497,7 +482,7 @@ double Continuous_Hidden_Markov_Model::Baum_Welch_Algorithm(int number_events, i
 		for (int t = 0; t < length_event[h]; t++){
 			double sum = 0;
 
-			for (int i = 0; i < number_states[h]; i++){
+			for (int i = 0; i < state[h].size(); i++){
 				int k = state[h][i];
 
 				for (int j = 0; j < number_gaussian_components; j++){
@@ -505,74 +490,74 @@ double Continuous_Hidden_Markov_Model::Baum_Welch_Algorithm(int number_events, i
 				}
 				sum += (likelihood[t][i] = GMM[k]->Calculate_Likelihood(_event[h][t], gaussian_distribution[t][i]));
 			}
-			for (int i = 0; i < number_states[h]; i++){
+			for (int i = 0; i < state[h].size(); i++){
 				likelihood[t][i] /= sum;
 			}
 		}
 
 		#pragma omp atomic
-		log_likelihood += Forward_Algorithm(length_event[h], number_states[h], state[h], alpha, likelihood);
-		Backward_Algorithm(length_event[h], number_states[h], state[h], beta, likelihood);
+		log_likelihood += Forward_Algorithm(length_event[h], state[h], alpha, likelihood);
+		Backward_Algorithm(length_event[h], state[h], beta, likelihood);
 
 		for (int t = 0; t < length_event[h]; t++){
 			double sum = 0;
 			double sum_theta = 0;
 
-			for (int i = 0; i < number_states[h]; i++){
+			for (int i = 0; i < state[h].size(); i++){
 				sum += (gamma[t][i] = alpha[t][i] * beta[t][i]);
 			}
-			for (int i = 0; i < number_states[h]; i++){
+			for (int i = 0; i < state[h].size(); i++){
 				gamma[t][i] = (gamma[t][i] == 0) ? (0) : (gamma[t][i] / sum);
 			}
 
 			if (t < length_event[h] - 1){
 				double sum_delta = 0;
 
-				double **delta = new double*[number_states[h]];
+				double **delta = new double*[state[h].size()];
 
-				for (int i = 0; i < number_states[h]; i++){
-					delta[i] = new double[number_states[h]];
+				for (int i = 0; i < state[h].size(); i++){
+					delta[i] = new double[state[h].size()];
 				}
 
-				for (int i = 0; i < number_states[h]; i++){
-					for (int j = 0; j < number_states[h]; j++){
+				for (int i = 0; i < state[h].size(); i++){
+					for (int j = 0; j < state[h].size(); j++){
 						int k = state[h][i];
 						int l = state[h][j];
 
 						sum_delta += (delta[i][j] = (state_connection[k].find(l) != state_connection[k].end() && Access_State(i, j)) * alpha[t][i] * transition_probability[k].find(l)->second * likelihood[t + 1][j] * beta[t + 1][j]);
 					}
 				}
-				for (int i = 0; i < number_states[h]; i++){
-					for (int j = 0; j < number_states[h]; j++){
+				for (int i = 0; i < state[h].size(); i++){
+					for (int j = 0; j < state[h].size(); j++){
 						delta[i][j] = (delta[i][j] == 0) ? (0) : (delta[i][j] / sum_delta);
 					}
 				}
 
-				for (int i = 0; i < number_states[h]; i++){
-					for (int j = 0; j < number_states[h]; j++){
+				for (int i = 0; i < state[h].size(); i++){
+					for (int j = 0; j < state[h].size(); j++){
 						#pragma omp atomic
 						new_transition_probability[0][state[h][i]].find(state[h][j])->second += delta[i][j];
 					}
 				}
 
-				for (int i = 0; i < number_states[h]; i++){
+				for (int i = 0; i < state[h].size(); i++){
 					delete[] delta[i];
 				}
 				delete[] delta;
 			}
 
-			for (int i = 0; i < number_states[h]; i++){
+			for (int i = 0; i < state[h].size(); i++){
 				int l = state[h][i];
 
 				for (int j = 0; j < number_gaussian_components; j++){
 					double sum = 0;
 
 					if (t == 0){
-						sum = (!strcmp(type_model, "ergodic") || i == 0) * initial_probability[l];
+						sum = (!type_model.compare("ergodic") || i == 0) * initial_probability[l];
 					}
 					else
 					if (t >= 1){
-						for (int k = 0; k < number_states[h]; k++){
+						for (int k = 0; k < state[h].size(); k++){
 							int m = state[h][k];
 
 							if (state_connection[m].find(l) != state_connection[m].end() && Access_State(k, i)){
@@ -584,7 +569,7 @@ double Continuous_Hidden_Markov_Model::Baum_Welch_Algorithm(int number_events, i
 				}
 			}
 
-			for (int i = 0; i < number_states[h]; i++){
+			for (int i = 0; i < state[h].size(); i++){
 				for (int j = 0; j < number_gaussian_components; j++){
 					theta[i][j][t] = (theta[i][j][t] == 0) ? (0) : (theta[i][j][t] / sum_theta);
 				}
@@ -594,7 +579,7 @@ double Continuous_Hidden_Markov_Model::Baum_Welch_Algorithm(int number_events, i
 		for (int i = 0; i < this->number_states; i++){
 			double sum = 0;
 
-			for (int k = 0; k < number_states[h]; k++){
+			for (int k = 0; k < state[h].size(); k++){
 				if (i == state[h][k]){
 					sum += gamma[0][k];
 				}
@@ -603,20 +588,20 @@ double Continuous_Hidden_Markov_Model::Baum_Welch_Algorithm(int number_events, i
 			new_initial_probability[i] += sum;
 		}
 
-		for (int l = 0; l < number_states[h]; l++){
+		for (int l = 0; l < state[h].size(); l++){
 			double sum = 0;
 
 			for (int t = 0; t < length_event[h] - 1; t++){
 				sum += gamma[t][l];
 			}
-			for (int j = 0; j < number_states[h]; j++){
+			for (int j = 0; j < state[h].size(); j++){
 				#pragma omp atomic
 				new_transition_probability[1][state[h][l]].find(state[h][j])->second += sum;
 			}
 		}
 
 		for (int j = 0; j < number_gaussian_components; j++){
-			for (int l = 0; l < number_states[h]; l++){
+			for (int l = 0; l < state[h].size(); l++){
 				double sum[2] = { 0, };
 
 				for (int t = 0; t < length_event[h]; t++){
@@ -632,7 +617,7 @@ double Continuous_Hidden_Markov_Model::Baum_Welch_Algorithm(int number_events, i
 
 		for (int j = 0; j < number_gaussian_components; j++){
 			for (int k = 0; k < dimension_event; k++){
-				for (int m = 0; m < number_states[h]; m++){
+				for (int m = 0; m < state[h].size(); m++){
 					double sum[2] = { 0, };
 
 					for (int t = 0; t < length_event[h]; t++){
@@ -649,8 +634,8 @@ double Continuous_Hidden_Markov_Model::Baum_Welch_Algorithm(int number_events, i
 
 		for (int j = 0; j < number_gaussian_components; j++){
 			for (int k = 0; k < dimension_event; k++){
-				if (!strcmp(type_covariance, "diagonal")){
-					for (int n = 0; n < number_states[h]; n++){
+				if (!type_covariance.compare("diagonal")){
+					for (int n = 0; n < state[h].size(); n++){
 						double sum[2] = { 0, };
 
 						for (int t = 0; t < length_event[h]; t++){
@@ -665,7 +650,7 @@ double Continuous_Hidden_Markov_Model::Baum_Welch_Algorithm(int number_events, i
 				}
 				else{
 					for (int l = 0; l < dimension_event; l++){
-						for (int n = 0; n < number_states[h]; n++){
+						for (int n = 0; n < state[h].size(); n++){
 							double sum[2] = { 0, };
 
 							for (int t = 0; t < length_event[h]; t++){
@@ -682,7 +667,7 @@ double Continuous_Hidden_Markov_Model::Baum_Welch_Algorithm(int number_events, i
 			}
 		}
 
-		for (int i = 0; i < number_states[h]; i++){
+		for (int i = 0; i < state[h].size(); i++){
 			for (int j = 0; j < number_gaussian_components; j++){
 				delete[] theta[i][j];
 			}
@@ -691,7 +676,7 @@ double Continuous_Hidden_Markov_Model::Baum_Welch_Algorithm(int number_events, i
 		delete[] theta;
 
 		for (int t = 0; t < length_event[h]; t++){
-			for (int i = 0; i < number_states[h]; i++){
+			for (int i = 0; i < state[h].size(); i++){
 				delete[] gaussian_distribution[t][i];
 			}
 			delete[] alpha[t];
@@ -724,7 +709,7 @@ double Continuous_Hidden_Markov_Model::Baum_Welch_Algorithm(int number_events, i
 		}
 		for (int j = 0; j < number_gaussian_components; j++){
 			for (int k = 0; k < dimension_event; k++){
-				if (!strcmp(type_covariance, "diagonal")){
+				if (!type_covariance.compare("diagonal")){
 					GMM[i]->diagonal_covariance[j][k] = (new_diagonal_covariance[j][i][k][0] == 0) ? (0) : (new_diagonal_covariance[j][i][k][0] / new_diagonal_covariance[j][i][k][1]);
 
 					if (GMM[i]->diagonal_covariance[j][k] < minimum_variance){
@@ -746,12 +731,12 @@ double Continuous_Hidden_Markov_Model::Baum_Welch_Algorithm(int number_events, i
 	for (int i = 0; i < this->number_states; i++){
 		for (auto p = transition_probability[i].begin(); p != transition_probability[i].end(); p++){
 			if (p->second){
-				valid_transition[p->first].insert(hash_map<int, double>::value_type(i, p->second));
+				valid_transition[p->first].insert(pair<int, double>(i, p->second));
 			}
 		}
 	}
 
-	if (!strcmp(type_covariance, "diagonal")){
+	if (!type_covariance.compare("diagonal")){
 		for (int j = 0; j < number_gaussian_components; j++){
 			for (int i = 0; i < this->number_states; i++){
 				for (int k = 0; k < dimension_event; k++){
@@ -850,9 +835,7 @@ double Continuous_Hidden_Markov_Model::Evaluation(int length_event, double **_ev
 
 	return log_likelihood;
 }
-double Continuous_Hidden_Markov_Model::Viterbi_Algorithm(char **optimal_label_sequence, int **optimal_state_sequence, int length_event, double **_event){
-	char ***label = new char**[length_event];
-
+double Continuous_Hidden_Markov_Model::Viterbi_Algorithm(string *optimal_label_sequence, int **optimal_state_sequence, int length_event, double **_event){
 	int *state_sequence = new int[length_event];
 
 	int **gamma = new int*[length_event];
@@ -861,14 +844,12 @@ double Continuous_Hidden_Markov_Model::Viterbi_Algorithm(char **optimal_label_se
 
 	double **delta = new double*[length_event];
 
+	string **label = new string*[length_event];
+
 	for (int t = 0; t < length_event; t++){
 		delta[t] = new double[number_states];
 		gamma[t] = new int[number_states];
-		label[t] = new char*[number_states];
-
-		for (int i = 0; i < number_states; i++){
-			label[t][i] = NULL;
-		}
+		label[t] = new string[number_states];
 	}
 
 	for (int t = 0; t < length_event; t++){
@@ -914,7 +895,7 @@ double Continuous_Hidden_Markov_Model::Viterbi_Algorithm(char **optimal_label_se
 				delta[t][i] = max * likelihood[i];
 				gamma[t][i] = argmax;
 
-				if (strcmp(state_label[i], state_label[argmax])){
+				if (state_label[i].compare(state_label[argmax])){
 					label[t][i] = state_label[i];
 				}
 			}
@@ -948,19 +929,14 @@ double Continuous_Hidden_Markov_Model::Viterbi_Algorithm(char **optimal_label_se
 
 	if (_finite(log_likelihood)){
 		if (optimal_label_sequence){
-			char *label_sequence = NULL;
+			string label_sequence;
 
 			for (int t = 0; t < length_event; t++){
-				if (label[t][state_sequence[t]] && strlen(label[t][state_sequence[t]])){
-					if (label_sequence == NULL){
-						strcpy(label_sequence = new char[1], "");
+				if (!label[t][state_sequence[t]].empty()){
+					if (!label_sequence.empty()){
+						label_sequence += ' ';
 					}
-					label_sequence = (char*)realloc(label_sequence, strlen(label_sequence) + strlen(label[t][state_sequence[t]]) + 2);
-
-					if (strlen(label_sequence)){
-						strcat(label_sequence, " ");
-					}
-					strcat(label_sequence, label[t][state_sequence[t]]);
+					label_sequence += label[t][state_sequence[t]];
 				}
 			}
 			(*optimal_label_sequence) = label_sequence;
