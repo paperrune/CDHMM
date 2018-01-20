@@ -1,6 +1,5 @@
 #include <fstream>
 #include <iostream>
-#include <time.h>
 
 #include "CHMM.h"
 #include "Kmeans.h"
