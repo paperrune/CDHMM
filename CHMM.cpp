@@ -555,29 +555,6 @@ double Continuous_Hidden_Markov_Model::Baum_Welch_Algorithm(int number_events, i
 				delete[] delta;
 			}
 
-			/*for (int i = 0; i < number_states; i++){
-				int l = state[h][i];
-
-				for (int j = 0; j < number_gaussian_components; j++){
-					double sum = 0;
-
-					if (t == 0){
-						sum = (type_model == "ergodic" || i == 0) * initial_probability[l];
-					}
-					else
-					if (t >= 1){
-						for (int k = 0; k < number_states; k++){
-							int m = state[h][k];
-
-							if (Access_State(k, i) && state_connection[m].find(l) != state_connection[m].end()){
-								sum += alpha[t - 1][k] * transition_probability[m].find(l)->second;
-							}
-						}
-					}
-					sum_theta += (theta[i][j][t] = sum * GMM[l]->weight[j] * gaussian_distribution[t][i][j] * beta[t][i]);
-				}
-			}*/
-
 			for (int i = 0; i < number_states; i++) {
 				int l = state[h][i];
 
