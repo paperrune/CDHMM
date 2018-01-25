@@ -495,7 +495,7 @@ double Continuous_Hidden_Markov_Model::Baum_Welch_Algorithm(int number_events, i
 				sum += (likelihood[t][i] = GMM[k]->Calculate_Likelihood(_event[h][t], gaussian_distribution[t][i]));
 			}
 			for (int i = 0; i < number_states; i++){
-				likelihood[t][i] /= sum;
+				// likelihood[t][i] /= sum;
 			}
 		}
 
