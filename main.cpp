@@ -3,7 +3,7 @@
 #include <omp.h>
 #include <time.h>
 
-#include "../CHMM.h"
+#include "../CDHMM.h"
 
 void Read_MNIST(string training_set_images, string training_set_labels, string test_set_images, string test_set_labels, int number_training, int number_test, int *label, double **input) {
 	ifstream file(training_set_images, ifstream::binary);
@@ -104,7 +104,7 @@ int main() {
 	string type_covariance		= "diagonal";	// <-> "full"
 	string type_model			= "bakis";		// <-> "ergodic"
 
-	Continuous_Hidden_Markov_Model *CHMM;
+	Continuous_Density_Hidden_Markov_Model *CDHMM;
 
 	for (int i = 0; i < number_training + number_test; i++) {
 		_event[i] = new double[(length_event[i] = length_data) * dimension_event];
@@ -112,7 +112,7 @@ int main() {
 	Read_MNIST("train-images.idx3-ubyte", "train-labels.idx1-ubyte", "t10k-images.idx3-ubyte", "t10k-labels.idx1-ubyte", number_training, number_test, label, _event);
 	omp_set_num_threads(number_threads);
 
-	// Construct CHMM
+	// Construct CDHMM
 	{
 		int number_states = static_cast<int>(state_label.size());
 
@@ -129,7 +129,7 @@ int main() {
 				}
 			}
 		}
-		CHMM = new Continuous_Hidden_Markov_Model(state_connection, type_covariance, type_model, state_label, dimension_event, number_gaussian_components, number_states);
+		CDHMM = new Continuous_Density_Hidden_Markov_Model(state_connection, type_model, state_label, dimension_event, number_states, type_covariance, number_gaussian_components);
 
 		delete[] state_connection;
 	}
@@ -144,12 +144,12 @@ int main() {
 			}
 		}
 
-		CHMM->Initialize(number_training, length_event, _event);
+		CDHMM->Initialize(number_training, length_event, _event);
 
 		for (int h = 0, time = clock(); h < number_iterations; h++) {
 			int number_correct[2] = { 0, };
 
-			double log_likelihood = CHMM->Baum_Welch_Algorithm(number_training, length_event, state, minimum_variance, _event);
+			double log_likelihood = CDHMM->Baum_Welch_Algorithm(number_training, length_event, state, minimum_variance, _event);
 
 			#pragma omp parallel for
 			for (int i = 0; i < number_training + number_test; i++) {
@@ -157,7 +157,7 @@ int main() {
 
 				string optimal_label_sequence;
 
-				CHMM->Viterbi_Algorithm(&optimal_label_sequence, &optimal_state_sequence, length_event[i], _event[i]);
+				CDHMM->Viterbi_Algorithm(&optimal_label_sequence, &optimal_state_sequence, length_event[i], _event[i]);
 
 				/*#pragma omp critical
 				{
@@ -189,7 +189,7 @@ int main() {
 	delete[] _event;
 	delete[] label;
 	delete[] length_event;
-	delete CHMM;
+	delete CDHMM;
 
 	return 0;
 }
