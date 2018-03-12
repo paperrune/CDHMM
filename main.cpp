@@ -1,92 +1,95 @@
+#include <fstream>
 #include <iostream>
 #include <omp.h>
 #include <time.h>
 
-#include "CHMM.h"
+#include "../CHMM.h"
 
-void Read_MNIST(char training_set_images[], char training_set_labels[], char test_set_images[], char test_set_labels[], int time_step, int number_training, int number_test, int *label, double ***input) {
-	FILE *file;
+void Read_MNIST(string training_set_images, string training_set_labels, string test_set_images, string test_set_labels, int number_training, int number_test, int *label, double **input) {
+	ifstream file(training_set_images, ifstream::binary);
 
-	if (file = fopen(training_set_images, "rb")) {
+	if (file.is_open()) {
 		for (int h = 0, value; h < 4; h++) {
-			fread(&value, sizeof(int), 1, file);
+			file.read((char*)(&value), sizeof(int));
 		}
 		for (int h = 0; h < number_training; h++) {
 			unsigned char pixel;
 
-			for (int j = 0; j < time_step; j++) {
-				for (int k = 0; k < 28 * 28 / time_step; k++) {
-					fread(&pixel, sizeof(unsigned char), 1, file);
-					input[h][j][k] = pixel / 255.0;
-				}
+			for (int j = 0; j < 28 * 28; j++) {
+				file.read((char*)(&pixel), 1);
+				input[h][j] = pixel / 255.0;
 			}
 		}
-		fclose(file);
+		file.close();
 	}
 	else {
-		fprintf(stderr, "[Read_MNIST], %s not found\n", training_set_images);
+		cerr << "[Read_MNIST], " + training_set_images + " not found" << endl;
 	}
 
-	if (file = fopen(training_set_labels, "rb")) {
+	file.open(training_set_labels, ifstream::binary);
+
+	if (file.is_open()) {
 		for (int h = 0, value; h < 2; h++) {
-			fread(&value, sizeof(int), 1, file);
+			file.read((char*)(&value), sizeof(int));
 		}
 		for (int h = 0; h < number_training; h++) {
 			unsigned char value;
 
-			fread(&value, sizeof(unsigned char), 1, file);
+			file.read((char*)(&value), 1);
 			label[h] = value;
 		}
-		fclose(file);
+		file.close();
 	}
 	else {
-		fprintf(stderr, "[Read_MNIST], %s not found\n", training_set_labels);
+		cerr << "[Read_MNIST], " + training_set_labels + " not found" << endl;
 	}
 
-	if (file = fopen(test_set_images, "rb")) {
+	file.open(test_set_images, ifstream::binary);
+
+	if (file.is_open()) {
 		for (int h = 0, value; h < 4; h++) {
-			fread(&value, sizeof(int), 1, file);
+			file.read((char*)(&value), sizeof(int));
 		}
 		for (int h = number_training; h < number_training + number_test; h++) {
 			unsigned char pixel;
 
-			for (int j = 0; j < time_step; j++) {
-				for (int k = 0; k < 28 * 28 / time_step; k++) {
-					fread(&pixel, sizeof(unsigned char), 1, file);
-					input[h][j][k] = pixel / 255.0;
-				}
+			for (int j = 0; j < 28 * 28; j++) {
+				file.read((char*)(&pixel), 1);
+				input[h][j] = pixel / 255.0;
 			}
 		}
-		fclose(file);
+		file.close();
 	}
 	else {
-		fprintf(stderr, "[Read_MNIST], %s not found\n", test_set_images);
+		cerr << "[Read_MNIST], " + test_set_images + " not found" << endl;
 	}
 
-	if (file = fopen(test_set_labels, "rb")) {
+	file.open(test_set_labels, ifstream::binary);
+
+	if (file.is_open()) {
 		for (int h = 0, value; h < 2; h++) {
-			fread(&value, sizeof(int), 1, file);
+			file.read((char*)(&value), sizeof(int));
 		}
 		for (int h = number_training; h < number_training + number_test; h++) {
 			unsigned char value;
 
-			fread(&value, sizeof(unsigned char), 1, file);
+			file.read((char*)(&value), 1);
 			label[h] = value;
 		}
-		fclose(file);
+		file.close();
 	}
 	else {
-		fprintf(stderr, "[Read_MNIST], %s not found\n", test_set_labels);
+		cerr << "[Read_MNIST], " + test_set_labels + " not found" << endl;
 	}
 }
 
 int main() {
-	int dimension_event		= 56;
-	int length_data			= 14;
-	int number_iterations	= 100;
-	int number_threads		= 4;
-	int number_training		= 60000;
-	int number_test			= 10000;
+	int dimension_event = 56;
+	int length_data		= 14;
+	int number_iterations = 50;
+	int number_threads	= 4;
+	int number_training = 60000;
+	int number_test		= 10000;
 
 	int number_gaussian_components = 1;
 
@@ -95,47 +98,39 @@ int main() {
 
 	double minimum_variance = 0.05; // prevents overfitting in the case of diagonal covariance
 
-	double ***_event = new double**[number_training + number_test];
+	double **_event = new double*[number_training + number_test];
 
-	vector<string> state_label	= { "0", "0", "0", "1", "1", "1", "2", "2", "2", "3", "3", "3", "4", "4", "4", "5", "5", "5", "6", "6", "6", "7", "7", "7", "8", "8", "8", "9", "9", "9", "-", "-", "-" };
+	vector<string> state_label	= { "0", "0", "0", "1", "1", "1", "2", "2", "2", "3", "3", "3", "4", "4", "4", "5", "5", "5", "6", "6", "6", "7", "7", "7", "8", "8", "8", "9", "9", "9", "", "", "" };
 	string type_covariance		= "diagonal";	// <-> "full"
 	string type_model			= "bakis";		// <-> "ergodic"
 
 	Continuous_Hidden_Markov_Model *CHMM;
 
 	for (int i = 0; i < number_training + number_test; i++) {
-		_event[i] = new double*[length_event[i] = length_data];
-
-		for (int j = 0; j < length_event[i]; j++) {
-			_event[i][j] = new double[dimension_event];
-		}
+		_event[i] = new double[(length_event[i] = length_data) * dimension_event];
 	}
-	Read_MNIST("train-images.idx3-ubyte", "train-labels.idx1-ubyte", "t10k-images.idx3-ubyte", "t10k-labels.idx1-ubyte", length_data, number_training, number_test, label, _event);
+	Read_MNIST("train-images.idx3-ubyte", "train-labels.idx1-ubyte", "t10k-images.idx3-ubyte", "t10k-labels.idx1-ubyte", number_training, number_test, label, _event);
 	omp_set_num_threads(number_threads);
 
 	// Construct CHMM
 	{
-		int number_states = state_label.size();
+		int number_states = static_cast<int>(state_label.size());
 
-		unordered_map<int, bool> *state_connection = new unordered_map<int, bool>[number_states];
+		set<int> *state_connection = new set<int>[number_states];
 
 		for (int i = 0; i < number_states; i++) {
 			for (int j = 0; j < number_states; j++) {
 				// for ergodic model
-				// state_connection[i].insert(pair<int, bool>(j, true));
+				// state_connection[i].insert(j);
 
 				// for bakis model
 				if (i == j || (i % 3 == 2 && j % 3 == 0) || j - i == 1) {
-					state_connection[i].insert(pair<int, bool>(j, true));
+					state_connection[i].insert(j);
 				}
 			}
 		}
-
 		CHMM = new Continuous_Hidden_Markov_Model(state_connection, type_covariance, type_model, state_label, dimension_event, number_gaussian_components, number_states);
 
-		for (int i = 0; i < number_states; i++) {
-			state_connection[i].clear();
-		}
 		delete[] state_connection;
 	}
 
@@ -175,23 +170,26 @@ int main() {
 				// cout << optimal_label_sequence << endl;
 
 				#pragma omp atomic
-				number_correct[(i < number_training) ? (0) : (1)] += (atoi(&optimal_label_sequence[2]) == label[i]);
+				number_correct[(i < number_training) ? (0) : (1)] += (atoi(&optimal_label_sequence[0]) == label[i]);
 
 				if (optimal_state_sequence) {
 					delete[] optimal_state_sequence;
 				}
 			}
-			printf(".");	CHMM->Save_Model("CHMM.txt");
+			// printf(".");	CHMM->Save_Model("CHMM.txt");
 
 			printf("score: %d / %d, %d / %d  L: %lf  step %d  %.2lf sec\n", number_correct[0], number_training, number_correct[1], number_test, log_likelihood, h + 1, (double)(clock() - time) / CLOCKS_PER_SEC);
-		}
-
-		for (int i = 0; i < number_training; i++) {
-			state[i].clear();
 		}
 		delete[] state;
 	}
 
+	for (int i = 0; i < number_training + number_test; i++) {
+		delete[] _event[i];
+	}
+	delete[] _event;
+	delete[] label;
+	delete[] length_event;
 	delete CHMM;
+
 	return 0;
 }
