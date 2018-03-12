@@ -210,7 +210,7 @@ Continuous_Hidden_Markov_Model::Continuous_Hidden_Markov_Model(string path) {
 		file.close();
 	}
 	else {
-		cerr << "[Load_Model], " + path + " not found" << endl;
+		cerr << "[Continuous_Hidden_Markov_Model], " + path + " not found" << endl;
 	}
 }
 Continuous_Hidden_Markov_Model::Continuous_Hidden_Markov_Model(set<int> state_connection[], string type_covariance, string type_model, vector<string> state_label, int dimension_event, int number_gaussian_components, int number_states){
